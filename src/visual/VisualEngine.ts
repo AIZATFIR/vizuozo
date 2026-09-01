@@ -120,8 +120,8 @@ export class VisualEngine {
     this.fluidMesh.position.z = -1.0;
     this.scene.add(this.fluidMesh);
 
-    // 5. Create GPU Particle System (Bounded strictly in center circle)
-    const maxParticles = 6000;
+    // 5. Create GPU Particle System (Astrophysical Rings, Crescent Loops & Polar Jets)
+    const maxParticles = 6500;
     const positions = new Float32Array(maxParticles * 3);
     const sizes = new Float32Array(maxParticles);
     const phases = new Float32Array(maxParticles);
@@ -130,42 +130,58 @@ export class VisualEngine {
 
     for (let i = 0; i < maxParticles; i++) {
       const idx = i * 3;
-      // Determine particle type:
-      // 50% dual-core spiral vortex, 25% binary jet filaments, 25% ambient stardust
       const rand = Math.random();
-      const pType = rand < 0.50 ? 1 : rand < 0.75 ? 2 : 0;
+      // 0: ambient stardust (15%)
+      // 1: orbital ring (25%)
+      // 2: crescent/teardrop loop (20%)
+      // 3: polar jets (25%)
+      // 4: astroid caustic cusps (15%)
+      const pType = rand < 0.15 ? 0 : rand < 0.40 ? 1 : rand < 0.60 ? 2 : rand < 0.85 ? 3 : 4;
       types[i] = pType;
 
       if (pType === 1) {
-        // Dual-core spiral disk - bounded radius r in [0.08, 0.75]
-        const rad = 0.08 + Math.pow(Math.random(), 1.5) * 0.68;
+        // Orbital Ring
+        const rad = 0.38 + (Math.random() - 0.5) * 0.04;
         const theta = Math.random() * Math.PI * 2;
         positions[idx] = Math.cos(theta) * rad;
         positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.15;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.05;
       } else if (pType === 2) {
-        // Jet filaments bursting from the binary centers
+        // Crescent loop
+        const theta = Math.random() * Math.PI * 2;
+        const rad = 0.12 + (Math.random() - 0.5) * 0.03;
+        positions[idx] = Math.cos(theta) * rad;
+        positions[idx + 1] = Math.sin(theta) * rad;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.04;
+      } else if (pType === 3) {
+        // Polar Jets
         const isCoreA = Math.random() > 0.5;
-        const baseAngle = isCoreA ? 0.4 : 3.54;
-        const spread = (Math.random() - 0.5) * 0.3;
-        const dist = 0.1 + Math.random() * 0.65;
-        positions[idx] = Math.cos(baseAngle + spread) * dist;
-        positions[idx + 1] = Math.sin(baseAngle + spread) * dist;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.1;
+        const baseAngle = isCoreA ? 0.45 : 3.59;
+        const dist = 0.05 + Math.random() * 0.50;
+        positions[idx] = Math.cos(baseAngle) * dist;
+        positions[idx + 1] = Math.sin(baseAngle) * dist;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.03;
+      } else if (pType === 4) {
+        // Astroid caustic cusps
+        const theta = Math.random() * Math.PI * 2;
+        const rad = 0.25 * (Math.random() * 0.5 + 0.5);
+        positions[idx] = Math.cos(theta) * rad;
+        positions[idx + 1] = Math.sin(theta) * rad;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.04;
       } else {
-        // Ambient stardust concentrated in center circle
-        const rad = Math.sqrt(Math.random()) * 0.82;
+        // Ambient stardust
+        const rad = Math.sqrt(Math.random()) * 0.55;
         const theta = Math.random() * Math.PI * 2;
         positions[idx] = Math.cos(theta) * rad;
         positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.2;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.1;
       }
 
-      sizes[i] = 1.0 + Math.random() * 2.8;
+      sizes[i] = 0.8 + Math.random() * 1.8;
       phases[i] = Math.random() * Math.PI * 2;
-      velocities[idx] = (Math.random() - 0.5) * 0.08;
-      velocities[idx + 1] = (Math.random() - 0.5) * 0.08;
-      velocities[idx + 2] = (Math.random() - 0.5) * 0.08;
+      velocities[idx] = (Math.random() - 0.5) * 0.05;
+      velocities[idx + 1] = (Math.random() - 0.5) * 0.05;
+      velocities[idx + 2] = (Math.random() - 0.5) * 0.05;
     }
 
     this.particleGeometry = new THREE.BufferGeometry();

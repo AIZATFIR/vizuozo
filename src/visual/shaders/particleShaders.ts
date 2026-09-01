@@ -14,7 +14,12 @@ uniform vec3 uColorAccent;
 attribute float aSize;
 attribute float aPhase;
 attribute vec3 aVelocity;
-attribute float aType; // 0: ambient star dust, 1: dual-core vortex orbit, 2: binary jet filaments
+attribute float aType; 
+// 0: ambient stardust cloud
+// 1: primary Einstein orbital ring (cincin gravitasi)
+// 2: crescent/teardrop caustic loop (lensa gravitasi)
+// 3: dual polar jet beams (semburan jet)
+// 4: hyperbolic caustic filaments (bentuk aneh / astroid cusp)
 
 varying vec3 vColor;
 varying float vAlpha;
@@ -22,102 +27,121 @@ varying float vCoreIntensity;
 
 void main() {
     vec3 pos = position;
+    float t = uTime * uParticleSpeed * 0.4 + aPhase;
+    float coreDist = 1.0;
     
-    float t = uTime * uParticleSpeed * 0.45 + aPhase;
-    float coreDist = 0.0;
-    
-    // Dual Binary Attractor Centers (orbiting around center (0,0))
-    float binaryOrbitRadius = 0.28 + uBass * 0.1;
-    float binaryAngle = uTime * 0.5 * (1.0 + uVortexStrength * 0.5);
-    vec2 coreA = vec2(cos(binaryAngle), sin(binaryAngle)) * binaryOrbitRadius;
+    // Binary attractor centers (compact center radius ~ 0.22)
+    float orbitR = 0.20 + uBass * 0.06;
+    float orbitAngle = uTime * 0.45 * (1.0 + uVortexStrength * 0.4);
+    vec2 coreA = vec2(cos(orbitAngle), sin(orbitAngle)) * orbitR;
     vec2 coreB = -coreA;
 
-    if (uVortexStrength > 0.01) {
-        if (aType == 1.0) {
-            // Dual-Core Spiral Vortex Orbit
-            // Determine attraction to closer binary core
-            float distA = length(pos.xy - coreA);
-            float distB = length(pos.xy - coreB);
-            vec2 targetCore = distA < distB ? coreA : coreB;
-            float minDist = min(distA, distB);
-            
-            // Orbital swirl around the binary system
-            float r = length(pos.xy);
-            float rotSpeed = (0.9 / (r + 0.22) + uBass * 0.8) * uVortexStrength;
-            float angle = atan(pos.y, pos.x) + rotSpeed * 0.035 * (sin(aPhase * 3.0 + t) * 0.5 + 1.0);
-            
-            pos.x = cos(angle) * r;
-            pos.y = sin(angle) * r;
-            
-            // Gentle gravitational pull towards active attractor
-            pos.xy = mix(pos.xy, targetCore + normalize(pos.xy - targetCore + 0.001) * 0.15, 0.18);
-            pos.z += sin(t * 1.8 + r * 3.0) * 0.06 * (1.0 + uBass);
-            
-            coreDist = minDist;
-        } else if (aType == 2.0) {
-            // Binary Jet Filaments (two luminous opposite jet streams bursting from the binary cores)
-            float isCoreA = step(3.14159, aPhase);
-            vec2 emitter = isCoreA > 0.5 ? coreA : coreB;
-            vec2 jetDir = normalize(emitter); // Radial outward jet direction
-            // Rotate jet slightly with momentum
-            mat2 rot = mat2(cos(0.35), sin(0.35), -sin(0.35), cos(0.35));
-            jetDir = rot * jetDir;
-            
-            float jetProgress = mod(t * 0.8 + aPhase * 0.5, 1.0); // 0.0 to 1.0
-            float jetLen = 0.05 + jetProgress * 0.65;
-            
-            // Curved jet stream trajectory
-            vec2 perp = vec2(-jetDir.y, jetDir.x);
-            float curve = sin(jetProgress * 3.14159) * 0.08 * sin(aPhase * 4.0);
-            
-            pos.xy = emitter + jetDir * jetLen + perp * curve;
-            pos.z = (sin(jetProgress * 6.28) * 0.05);
-            
-            coreDist = jetProgress;
-        } else {
-            // Ambient inner starry dust bounded around center
-            float r = length(pos.xy);
-            float angle = atan(pos.y, pos.x) + 0.15 * t * (1.0 / (r + 0.3));
-            pos.x = cos(angle) * r;
-            pos.y = sin(angle) * r;
-            pos.xy += sin(vec2(t * 0.5, t * 0.7) + pos.yx * 2.0) * (0.02 + uMids * 0.03);
-            coreDist = r;
-        }
-    } else {
-        // Natural organic harmonic flow centered within bounded radius
-        pos.xy += sin(vec2(t * 0.6 + pos.y * 1.5, t * 0.8 + pos.x * 1.5)) * (0.03 + uMids * 0.04);
+    if (aType == 1.0) {
+        // 1. PRIMARY EINSTEIN ORBITAL RING (Cincin Lingkaran Utama)
+        float ringRadius = 0.38 + sin(aPhase * 2.0 + t * 0.5) * 0.02 + uBass * 0.06;
+        float angle = aPhase + t * 0.6;
+        // Slight elliptical eccentricity
+        pos.x = cos(angle) * ringRadius * 1.08;
+        pos.y = sin(angle) * ringRadius * 0.92;
+        pos.z = sin(angle * 3.0 + t) * 0.025;
+        
+        // Minor stippled scatter along ring
+        pos.xy += aVelocity.xy * 0.03;
+        coreDist = abs(length(pos.xy) - ringRadius) * 4.0;
+    } 
+    else if (aType == 2.0) {
+        // 2. CRESCENT / TEARDROP CAUSTIC LOOP (Loop Melingkar di sekitar Core A - sesuai gambar 1)
+        float loopT = mod(aPhase + t * 0.8, 6.28318);
+        // Cardioid / Teardrop parametric loop centered around coreA
+        float rLoop = 0.14 * (1.0 - sin(loopT));
+        vec2 localLoop = vec2(
+            rLoop * cos(loopT) * 1.3,
+            rLoop * sin(loopT) * 1.1
+        );
+        // Rotate loop along binary angle
+        mat2 rotMat = mat2(cos(orbitAngle + 0.8), sin(orbitAngle + 0.8), -sin(orbitAngle + 0.8), cos(orbitAngle + 0.8));
+        pos.xy = coreA + rotMat * localLoop;
+        pos.z = sin(loopT * 2.0) * 0.02;
+        
+        coreDist = length(localLoop) * 3.5;
+    }
+    else if (aType == 3.0) {
+        // 3. DUAL POLAR JETS (Semburan Jet Tajam Memanjang - sesuai gambar 1 & 2)
+        float isCoreA = step(3.14159, aPhase);
+        vec2 emitter = isCoreA > 0.5 ? coreA : coreB;
+        vec2 jetDir = normalize(emitter);
+        // Opposite diagonal orientation
+        mat2 jetRot = mat2(cos(0.45), sin(0.45), -sin(0.45), cos(0.45));
+        jetDir = jetRot * jetDir;
+        
+        float jetProgress = mod(t * 0.9 + aPhase * 0.6, 1.0);
+        float jetLen = 0.02 + pow(jetProgress, 1.2) * (0.55 + uBass * 0.2);
+        
+        // Needle-like focus at root, slight filament spread at tip
+        vec2 perp = vec2(-jetDir.y, jetDir.x);
+        float spread = sin(jetProgress * 3.14159) * 0.025 * sin(aPhase * 6.0);
+        
+        pos.xy = emitter + jetDir * jetLen + perp * spread;
+        pos.z = (sin(jetProgress * 6.28) * 0.03);
+        
+        coreDist = jetProgress; // Blazing hot at emitter root
+    }
+    else if (aType == 4.0) {
+        // 4. HYPERBOLIC / ASTROID CAUSTIC CUSPS (Bentuk Aneh Lensa Gravitasi)
+        float cuspT = mod(aPhase + t * 0.5, 6.28318);
+        float cuspScale = 0.28 + uBass * 0.05;
+        // Astroid / Hypocycloid curve: x = a*cos^3(t), y = a*sin^3(t)
+        float cosT = cos(cuspT);
+        float sinT = sin(cuspT);
+        vec2 cuspShape = vec2(cosT * cosT * cosT, sinT * sinT * sinT) * cuspScale;
+        
+        mat2 cuspRot = mat2(cos(-orbitAngle * 0.6), sin(-orbitAngle * 0.6), -sin(-orbitAngle * 0.6), cos(-orbitAngle * 0.6));
+        pos.xy = cuspRot * cuspShape + aVelocity.xy * 0.02;
+        pos.z = sin(cuspT * 4.0) * 0.02;
+        
         coreDist = length(pos.xy);
     }
+    else {
+        // 0. AMBIENT STARDUST (Debu kosmik halus terkonsentrasi di tengah)
+        float r = length(pos.xy);
+        float angle = atan(pos.y, pos.x) + 0.12 * t * (1.0 / (r + 0.25));
+        pos.x = cos(angle) * r;
+        pos.y = sin(angle) * r;
+        pos.xy += sin(vec2(t * 0.4 + pos.y * 2.0, t * 0.5 + pos.x * 2.0)) * (0.015 + uMids * 0.02);
+        coreDist = r * 1.5;
+    }
     
-    // Treble and transient spark vibration
-    pos += aVelocity * (uTreble * 0.1 + uTransient * 0.18);
+    // Treble vibration & spark displacement
+    pos += aVelocity * (uTreble * 0.08 + uTransient * 0.14);
 
-    // Strict Center Bounded Radius Check (Fade out smoothly to 0 before r = 0.95)
+    // Strict Compact Center Bound: Soft fadeout before r = 0.68
     float rCurrent = length(pos.xy);
-    float maxRadius = 0.92;
-    float centerEdgeFade = smoothstep(maxRadius, maxRadius * 0.55, rCurrent);
+    float maxRadius = 0.68;
+    float centerFade = smoothstep(maxRadius, maxRadius * 0.50, rCurrent);
 
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     
-    // Size attenuation: Core particles are sharper, dust particles are softer
-    float sizeMultiplier = 1.0 + uTreble * 0.7 + uTransient * 1.3;
-    if (aType == 2.0) sizeMultiplier *= 1.3; // Jets are luminous
-    gl_PointSize = (aSize * uParticleSize * sizeMultiplier) * (280.0 / -mvPosition.z);
-    gl_PointSize = clamp(gl_PointSize, 1.0, 36.0);
+    // Size attenuation: fine photographic stippled grain
+    float sizeMultiplier = 1.0 + uTreble * 0.6 + uTransient * 1.2;
+    if (aType == 3.0) sizeMultiplier *= 1.4; // Jets are brighter
+    if (aType == 2.0) sizeMultiplier *= 1.2; // Crescent loop
     
-    // Luminous color calculation
-    vec3 col = mix(uColorGlow, uColorAccent, sin(aPhase + uTime * 0.6) * 0.5 + 0.5);
+    gl_PointSize = (aSize * uParticleSize * sizeMultiplier) * (260.0 / -mvPosition.z);
+    gl_PointSize = clamp(gl_PointSize, 0.8, 28.0);
     
-    // Bright white core intensity for binary cores and jet origin
-    float coreGlow = smoothstep(0.35, 0.02, coreDist);
-    if (aType == 2.0) {
-        coreGlow = smoothstep(0.4, 0.0, coreDist);
+    // Pure starlight silver-white palette
+    vec3 col = mix(uColorGlow, uColorAccent, sin(aPhase + uTime * 0.4) * 0.3 + 0.7);
+    
+    // Blazing white hot intensity at jet emitters, loops and caustics
+    float coreGlow = smoothstep(0.32, 0.01, coreDist);
+    if (aType == 3.0) {
+        coreGlow = smoothstep(0.35, 0.0, coreDist);
     }
     
     vCoreIntensity = coreGlow;
     vColor = col;
-    vAlpha = (0.3 + uEnergy * 0.5 + uTransient * 0.3) * centerEdgeFade;
+    vAlpha = (0.35 + uEnergy * 0.5 + uTransient * 0.35) * centerFade;
 }
 `;
 
@@ -131,13 +155,13 @@ void main() {
     float dist = length(coord);
     if (dist > 0.5) discard;
     
-    // Smooth Gaussian point sprite
-    float core = smoothstep(0.18, 0.0, dist);
+    // Fine stippled Gaussian point with blazing white center
+    float core = smoothstep(0.15, 0.0, dist);
     float halo = smoothstep(0.5, 0.0, dist);
-    float alpha = (core * 0.6 + halo * 0.4) * vAlpha;
+    float alpha = (core * 0.7 + halo * 0.3) * vAlpha;
     
-    // Blazing white hot core when concentrated or near binary attractors
-    vec3 col = mix(vColor, vec3(1.0, 1.0, 1.0), vCoreIntensity * 0.75 + core * 0.4);
+    // Pure white starlight core blending
+    vec3 col = mix(vColor, vec3(1.0, 1.0, 1.0), clamp(vCoreIntensity * 0.85 + core * 0.5, 0.0, 1.0));
     
     gl_FragColor = vec4(col, alpha);
 }

@@ -140,63 +140,50 @@ void main() {
     float shockwave = sin(rDist * 16.0 - uTime * 3.5) * uTransient * 0.035;
     uv += normalize(uv + 0.0001) * shockwave;
 
-    // Fluid coordinates
-    vec2 p = uv * uFluidScale;
+    // Fluid coordinates (compact scale)
+    vec2 p = uv * (uFluidScale * 1.6);
     vec2 q, r;
     float f = fluidPattern(p, q, r);
     
     // Deep Dark Void Base
     vec3 col = uColorBg;
     
-    // Smooth bioluminescent fluid filament density
-    // Only light up where fluid streams form, leaving deep black voids in between
-    float fluidDensity = smoothstep(-0.25, 0.65, f);
-    float ribbonDensity = smoothstep(0.1, 0.8, length(q));
-    float accentDensity = smoothstep(0.2, 0.9, length(r.x));
+    // Subtle cosmic dust haze (compact center radius < 0.6)
+    float centerHaze = smoothstep(0.62, 0.15, length(uv));
+    float fluidDensity = smoothstep(0.1, 0.75, f) * centerHaze;
+    float ribbonDensity = smoothstep(0.3, 0.85, length(q)) * centerHaze;
     
-    // Layer 1: Warm glowing fluid streams
-    col += uColorPrimary * fluidDensity * (0.45 + uBass * 0.35);
+    // Faint delicate starlight ribbons
+    col += uColorPrimary * fluidDensity * (0.22 + uBass * 0.18);
+    col += uColorSecondary * ribbonDensity * (0.16 + uMids * 0.16);
     
-    // Layer 2: Translucent harmonic ribbons (driven by mids)
-    col += uColorSecondary * ribbonDensity * (0.35 + uMids * 0.35);
-    
-    // Layer 3: Accent caustics and highlights (driven by treble)
-    col += uColorAccent * accentDensity * (0.25 + uTreble * 0.3);
-    
-    // Soft bioluminescent glow (no harsh white glare)
-    float softGlow = pow(clamp(fluidDensity * ribbonDensity * 1.5, 0.0, 1.0), 2.5);
-    col += uColorGlow * softGlow * (0.35 + uEnergy * 0.25);
+    // Soft central glow
+    float softGlow = pow(clamp(fluidDensity * ribbonDensity * 2.0, 0.0, 1.0), 2.2);
+    col += uColorGlow * softGlow * (0.2 + uEnergy * 0.15);
     
     // Architectural Arches (Jannah preset)
-    float arch = archSilhouette(uv);
+    float arch = archSilhouette(uv) * centerHaze;
     if (arch > 0.001) {
-        col += uColorGlow * arch * (0.35 + uBass * 0.25);
+        col += uColorGlow * arch * (0.25 + uBass * 0.18);
     }
     
     // Deep Monumental Semicolon ';' in the dark abyss
     if (uSemicolonVisibility > 0.01) {
-        vec2 semiUv = uv + vec2(0.0, -0.05) + vec2(snoise(uv * 1.8 + uTime * 0.08)) * (0.015 + uBass * 0.025);
-        float semiScale = 1.35;
+        vec2 semiUv = uv + vec2(0.0, -0.04) + vec2(snoise(uv * 1.6 + uTime * 0.06)) * (0.01 + uBass * 0.015);
+        float semiScale = 1.05; // Compact subtle semicolon
         float dSemi = sdSemicolon(semiUv, semiScale);
         
         // Deep soft glowing contour
-        float semiInner = smoothstep(0.015, -0.03, dSemi);
-        float semiGlow = smoothstep(0.28, 0.0, dSemi) * (0.25 + uBass * 0.3 + uTransient * 0.2);
+        float semiInner = smoothstep(0.015, -0.02, dSemi);
+        float semiGlow = smoothstep(0.22, 0.0, dSemi) * (0.18 + uBass * 0.18 + uTransient * 0.15);
         
-        vec3 semiCol = mix(uColorGlow, uColorAccent, 0.5);
-        col += semiCol * (semiInner * 0.18 + semiGlow * 0.22) * uSemicolonVisibility;
+        vec3 semiCol = mix(uColorGlow, uColorAccent, 0.6);
+        col += semiCol * (semiInner * 0.12 + semiGlow * 0.16) * uSemicolonVisibility * centerHaze;
     }
     
-    // Atmospheric Vignette (fades gracefully to pitch black around edges)
-    float vignette = smoothstep(1.5, 0.25, length(uv));
+    // Atmospheric Vignette (fades to 100% pitch black #000000 beyond center)
+    float vignette = smoothstep(0.85, 0.25, length(uv));
     col *= vignette;
-    
-    // Subtle chromatic aberration on active edges
-    if (uChromaticAberration > 0.001) {
-        float ca = uChromaticAberration * (0.003 + uTransient * 0.005);
-        col.r *= 1.0 + ca * length(q);
-        col.b *= 1.0 - ca * length(r);
-    }
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
