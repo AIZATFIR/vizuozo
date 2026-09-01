@@ -33,8 +33,9 @@ describe('GLSL Shaders Integrity', () => {
     expect(fluidFragmentShader).toContain('sdSemicolon(');
   });
 
-  it('should contain particle shaders with vortex and jet logic', () => {
-    expect(particleVertexShader).toContain('uVortexStrength');
+  it('should contain particle shaders with caustic form morphing and jet logic', () => {
+    expect(particleVertexShader).toContain('uCausticFormSource');
+    expect(particleVertexShader).toContain('uCausticMorph');
     expect(particleVertexShader).toContain('aType');
     expect(particleFragmentShader).toContain('gl_PointCoord');
   });

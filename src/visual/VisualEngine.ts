@@ -27,6 +27,9 @@ export class VisualEngine {
   private currentPreset: VisualPresetConfig;
   private targetPreset: VisualPresetConfig;
   private presetLerpFactor = 1.0;
+  private causticFormSource = 0.0;
+  private causticFormTarget = 0.0;
+  private causticMorph = 1.0;
   private activePalette: {
     primary: THREE.Vector3;
     secondary: THREE.Vector3;
@@ -201,9 +204,11 @@ export class VisualEngine {
         uTreble: { value: 0 },
         uTransient: { value: 0 },
         uEnergy: { value: 0 },
-        uVortexStrength: { value: this.currentPreset.vortexStrength },
         uParticleSpeed: { value: this.currentPreset.particleSpeed },
         uParticleSize: { value: this.currentPreset.particleSize },
+        uCausticFormSource: { value: 0.0 },
+        uCausticFormTarget: { value: 0.0 },
+        uCausticMorph: { value: 1.0 },
         uColorGlow: { value: this.activePalette.glow },
         uColorAccent: { value: this.activePalette.accent }
       },
@@ -244,6 +249,20 @@ export class VisualEngine {
   public setPreset(id: VisualPresetId): void {
     const target = PRESETS[id];
     if (!target) return;
+
+    const formMap: Record<VisualPresetId, number> = {
+      void: 0.0,    // Photon Ring with inner filament (Image 3)
+      jannah: 1.0,  // Arched Bridge with antenna needle (Images 1 & 2)
+      fluid: 2.0,   // Double-Lobe Hourglass Caustic (Image 4)
+      rave: 3.0,    // Dual Polar Jets & Dipole
+      dream: 4.0,   // Deep Semicolon Caustic
+      cat: 5.0      // Constellation Cat
+    };
+
+    this.causticFormSource = formMap[this.currentPreset.id] ?? 0.0;
+    this.causticFormTarget = formMap[id] ?? 0.0;
+    this.causticMorph = 0.0;
+
     this.targetPreset = { ...target };
     this.presetLerpFactor = 0.0;
 
@@ -273,7 +292,12 @@ export class VisualEngine {
     // 1. Mouse smooth interpolation
     this.mousePos.lerp(this.targetMousePos, 0.08);
 
-    // 2. Preset Transition Interpolation (Smooth morphing between palettes & settings)
+    // 2. Caustic Form Morphing Interpolation
+    if (this.causticMorph < 1.0) {
+      this.causticMorph = Math.min(1.0, this.causticMorph + delta * 2.2);
+    }
+
+    // 3. Preset Transition Interpolation (Smooth morphing between palettes & settings)
     if (this.presetLerpFactor < 1.0) {
       this.presetLerpFactor = Math.min(1.0, this.presetLerpFactor + delta * 1.5);
       const t = this.presetLerpFactor;
@@ -301,16 +325,16 @@ export class VisualEngine {
       this.fluidMaterial.uniforms.uChromaticAberration.value = lerpScalar(this.currentPreset.chromaticAberration, this.targetPreset.chromaticAberration);
       this.fluidMaterial.uniforms.uNoiseOctaves.value = lerpScalar(this.currentPreset.noiseOctaves, this.targetPreset.noiseOctaves);
 
-      this.particleMaterial.uniforms.uVortexStrength.value = lerpScalar(this.currentPreset.vortexStrength, this.targetPreset.vortexStrength);
       this.particleMaterial.uniforms.uParticleSpeed.value = lerpScalar(this.currentPreset.particleSpeed, this.targetPreset.particleSpeed);
       this.particleMaterial.uniforms.uParticleSize.value = lerpScalar(this.currentPreset.particleSize, this.targetPreset.particleSize);
 
       if (t >= 1.0) {
         this.currentPreset = { ...this.targetPreset };
+        this.causticFormSource = this.causticFormTarget;
       }
     }
 
-    // 3. Update Fluid Uniforms
+    // 4. Update Fluid Uniforms
     this.fluidMaterial.uniforms.uTime.value = time;
     this.fluidMaterial.uniforms.uMouse.value.copy(this.mousePos);
     this.fluidMaterial.uniforms.uBass.value = metrics.bass;
@@ -319,10 +343,16 @@ export class VisualEngine {
     this.fluidMaterial.uniforms.uTransient.value = metrics.transient;
     this.fluidMaterial.uniforms.uEnergy.value = metrics.energy;
 
-    // 4. Update Particle Uniforms
+    // 5. Update Particle Uniforms
     this.particleMaterial.uniforms.uTime.value = time;
     this.particleMaterial.uniforms.uBass.value = metrics.bass;
     this.particleMaterial.uniforms.uMids.value = metrics.mids;
+    this.particleMaterial.uniforms.uTreble.value = metrics.treble;
+    this.particleMaterial.uniforms.uTransient.value = metrics.transient;
+    this.particleMaterial.uniforms.uEnergy.value = metrics.energy;
+    this.particleMaterial.uniforms.uCausticFormSource.value = this.causticFormSource;
+    this.particleMaterial.uniforms.uCausticFormTarget.value = this.causticFormTarget;
+    this.particleMaterial.uniforms.uCausticMorph.value = this.causticMorph;
     this.particleMaterial.uniforms.uTreble.value = metrics.treble;
     this.particleMaterial.uniforms.uTransient.value = metrics.transient;
     this.particleMaterial.uniforms.uEnergy.value = metrics.energy;
