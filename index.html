@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>;wave — Living Audio Atmosphere</title>
+    <meta name="description" content="An abstract, living reactive music visualizer where sound becomes fluid, light, and depth." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- 100vw x 100vh WebGL Canvas Container -->
+      <div id="canvas-container"></div>
+
+      <!-- Drag & Drop Zone Overlay -->
+      <div id="drop-zone" class="drop-zone hidden" aria-label="Drop audio file here">
+        <div class="drop-card">
+          <div class="drop-icon">;</div>
+          <div class="drop-title">Drop audio to immerse</div>
+          <div class="drop-sub">MP3, WAV, OGG, M4A, FLAC</div>
+        </div>
+      </div>
+
+      <!-- Floating Glassmorphic PiP Player -->
+      <aside id="pip-player" class="pip-player expanded" aria-label="Floating Audio Controller">
+        <!-- Collapsed Mini Orb View -->
+        <button id="pip-collapsed-view" class="pip-collapsed-orb" title="Expand Player (H or Click)" aria-label="Expand player">
+          <div class="orb-pulsar"></div>
+          <span class="orb-glyph">;</span>
+        </button>
+
+        <!-- Expanded Glass Capsule View -->
+        <div id="pip-expanded-view" class="pip-capsule">
+          <div class="pip-header">
+            <div class="track-orb">
+              <div class="track-orb-inner">;</div>
+            </div>
+            <div class="track-meta">
+              <div id="track-title" class="track-title">Ethereal Bloom</div>
+              <div id="track-artist" class="track-artist">Curated Ambient</div>
+            </div>
+            <div class="pip-header-actions">
+              <button id="btn-collapse-pip" class="btn-icon" title="Minimize to Orb" aria-label="Minimize player">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6"/><path d="M20 10h-6V4"/><path d="M14 10l7-7"/><path d="M10 14L3 21"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress / Scrubber Bar -->
+          <div class="pip-progress-row">
+            <span id="time-current" class="time-label">0:00</span>
+            <div id="progress-bar-container" class="progress-bar-container">
+              <div id="progress-fill" class="progress-fill"></div>
+              <input id="seek-slider" type="range" min="0" max="100" value="0" step="0.1" class="seek-slider" aria-label="Track progress" />
+            </div>
+            <span id="time-total" class="time-label">0:00</span>
+          </div>
+
+          <!-- Playback Controls -->
+          <div class="pip-controls-row">
+            <button id="btn-prev" class="btn-icon" title="Previous Track" aria-label="Previous track">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2.5"/></svg>
+            </button>
+            
+            <button id="btn-play-pause" class="btn-play" title="Play/Pause (Space)" aria-label="Play or pause">
+              <svg id="icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              <svg id="icon-pause" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </button>
+
+            <button id="btn-next" class="btn-icon" title="Next Track" aria-label="Next track">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5"/></svg>
+            </button>
+
+            <div class="volume-container">
+              <button id="btn-volume" class="btn-icon" title="Mute/Unmute" aria-label="Volume">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              </button>
+              <input id="volume-slider" type="range" min="0" max="1" step="0.01" value="0.8" class="volume-slider" aria-label="Volume slider" />
+            </div>
+          </div>
+
+          <!-- Source Switcher Bar -->
+          <div class="pip-sources-row">
+            <button id="src-demo" class="btn-pill active" title="Curated Ambient Tracks">Demo</button>
+            <button id="src-synth" class="btn-pill" title="Procedural Ambient Synth">Synth</button>
+            <button id="src-mic" class="btn-pill" title="Live Microphone Input (M)">Mic</button>
+            <label id="src-file-label" class="btn-pill" title="Upload Audio File" for="file-input">
+              <span>Upload</span>
+              <input id="file-input" type="file" accept="audio/*" class="sr-only" />
+            </label>
+          </div>
+
+          <!-- Preset Switcher Bar -->
+          <div class="pip-presets-row">
+            <span class="preset-label">Atmosphere</span>
+            <div id="preset-buttons" class="preset-pills">
+              <button data-preset="fluid" class="btn-preset active">Fluid</button>
+              <button data-preset="dream" class="btn-preset">Dream</button>
+              <button data-preset="jannah" class="btn-preset">Jannah</button>
+              <button data-preset="rave" class="btn-preset">Rave</button>
+              <button data-preset="cat" class="btn-preset">Cat</button>
+              <button data-preset="void" class="btn-preset">Void</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Corner Minimal HUD Controls (Auto-fades) -->
+      <div id="corner-hud" class="corner-hud">
+        <button id="btn-fullscreen" class="hud-btn" title="Toggle Fullscreen (F)" aria-label="Fullscreen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <button id="btn-shortcuts" class="hud-btn" title="Keyboard Shortcuts (?)" aria-label="Shortcuts">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </button>
+      </div>
+
+      <!-- Shortcuts Modal Dialog -->
+      <dialog id="shortcuts-dialog" class="shortcuts-dialog">
+        <div class="dialog-content">
+          <div class="dialog-header">
+            <h3>Living Shortcuts</h3>
+            <button id="btn-close-dialog" class="btn-icon" aria-label="Close dialog">✕</button>
+          </div>
+          <div class="dialog-body">
+            <div class="shortcut-item"><kbd>Space</kbd><span>Play / Pause</span></div>
+            <div class="shortcut-item"><kbd>F</kbd><span>Toggle Fullscreen</span></div>
+            <div class="shortcut-item"><kbd>1</kbd>–<kbd>6</kbd><span>Switch Atmosphere Presets</span></div>
+            <div class="shortcut-item"><kbd>M</kbd><span>Toggle Microphone</span></div>
+            <div class="shortcut-item"><kbd>H</kbd><span>Hide / Show Controls</span></div>
+            <div class="shortcut-item"><kbd>Drag & Drop</kbd><span>Load Audio File</span></div>
+          </div>
+        </div>
+      </dialog>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
