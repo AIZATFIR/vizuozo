@@ -120,8 +120,8 @@ export class VisualEngine {
     this.fluidMesh.position.z = -1.0;
     this.scene.add(this.fluidMesh);
 
-    // 5. Create GPU Particle System
-    const maxParticles = 5000;
+    // 5. Create GPU Particle System (Bounded strictly in center circle)
+    const maxParticles = 6000;
     const positions = new Float32Array(maxParticles * 3);
     const sizes = new Float32Array(maxParticles);
     const phases = new Float32Array(maxParticles);
@@ -130,36 +130,42 @@ export class VisualEngine {
 
     for (let i = 0; i < maxParticles; i++) {
       const idx = i * 3;
-      // Determine particle type: 65% ambient stars, 25% orbital spiral, 10% luminous jets
+      // Determine particle type:
+      // 50% dual-core spiral vortex, 25% binary jet filaments, 25% ambient stardust
       const rand = Math.random();
-      const pType = rand < 0.65 ? 0 : rand < 0.9 ? 1 : 2;
+      const pType = rand < 0.50 ? 1 : rand < 0.75 ? 2 : 0;
       types[i] = pType;
 
-      if (pType === 0) {
-        // Broad ambient field
-        positions[idx] = (Math.random() - 0.5) * 5.0;
-        positions[idx + 1] = (Math.random() - 0.5) * 3.5;
-        positions[idx + 2] = (Math.random() - 0.5) * 2.0;
-      } else if (pType === 1) {
-        // Disk / spiral vortex
-        const rad = 0.2 + Math.random() * 1.8;
+      if (pType === 1) {
+        // Dual-core spiral disk - bounded radius r in [0.08, 0.75]
+        const rad = 0.08 + Math.pow(Math.random(), 1.5) * 0.68;
         const theta = Math.random() * Math.PI * 2;
         positions[idx] = Math.cos(theta) * rad;
         positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.4;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.15;
+      } else if (pType === 2) {
+        // Jet filaments bursting from the binary centers
+        const isCoreA = Math.random() > 0.5;
+        const baseAngle = isCoreA ? 0.4 : 3.54;
+        const spread = (Math.random() - 0.5) * 0.3;
+        const dist = 0.1 + Math.random() * 0.65;
+        positions[idx] = Math.cos(baseAngle + spread) * dist;
+        positions[idx + 1] = Math.sin(baseAngle + spread) * dist;
+        positions[idx + 2] = (Math.random() - 0.5) * 0.1;
       } else {
-        // Luminous diagonal jet filaments (matching reference imagery)
-        const t = (Math.random() - 0.5) * 2.5;
-        positions[idx] = t * 0.85;
-        positions[idx + 1] = -t * 0.52;
+        // Ambient stardust concentrated in center circle
+        const rad = Math.sqrt(Math.random()) * 0.82;
+        const theta = Math.random() * Math.PI * 2;
+        positions[idx] = Math.cos(theta) * rad;
+        positions[idx + 1] = Math.sin(theta) * rad;
         positions[idx + 2] = (Math.random() - 0.5) * 0.2;
       }
 
-      sizes[i] = 1.0 + Math.random() * 3.0;
+      sizes[i] = 1.0 + Math.random() * 2.8;
       phases[i] = Math.random() * Math.PI * 2;
-      velocities[idx] = (Math.random() - 0.5) * 0.2;
-      velocities[idx + 1] = (Math.random() - 0.5) * 0.2;
-      velocities[idx + 2] = (Math.random() - 0.5) * 0.2;
+      velocities[idx] = (Math.random() - 0.5) * 0.08;
+      velocities[idx + 1] = (Math.random() - 0.5) * 0.08;
+      velocities[idx + 2] = (Math.random() - 0.5) * 0.08;
     }
 
     this.particleGeometry = new THREE.BufferGeometry();
