@@ -46,13 +46,13 @@ export class AudioAnalyzer {
       sumSquares += normalized * normalized;
     }
     const rms = Math.sqrt(sumSquares / this.timeDomainBuffer.length);
-    const rawEnergy = Math.min(1, rms * 3.0);
+    const rawEnergy = Math.min(1, rms * 4.2);
 
-    // 2. Frequency Band Averages
+    // 2. Frequency Band Averages (Higher sensitivity)
     const getBandAverage = (minHz: number, maxHz: number): number => {
       const startBin = Math.max(0, Math.floor(minHz / hzPerBin));
       const endBin = Math.min(binCount - 1, Math.ceil(maxHz / hzPerBin));
-      if (startBin >= endBin) return this.frequencyBuffer[startBin] / 255;
+      if (startBin >= endBin) return (this.frequencyBuffer[startBin] / 255);
 
       let sum = 0;
       for (let i = startBin; i <= endBin; i++) {
@@ -61,11 +61,11 @@ export class AudioAnalyzer {
       return sum / ((endBin - startBin + 1) * 255);
     };
 
-    const rawBass = Math.pow(getBandAverage(20, 160), 1.2) * 1.5;
-    const rawMids = Math.pow(getBandAverage(160, 2600), 1.1) * 1.3;
-    const rawTreble = Math.pow(getBandAverage(2600, 16000), 1.1) * 1.6;
+    const rawBass = Math.min(1.0, Math.pow(getBandAverage(20, 150), 0.85) * 2.2);
+    const rawMids = Math.min(1.0, Math.pow(getBandAverage(150, 2400), 0.9) * 1.8);
+    const rawTreble = Math.min(1.0, Math.pow(getBandAverage(2400, 16000), 0.95) * 2.0);
 
-    // 3. Transient & Beat Detection
+    // 3. Transient & Beat Detection (High sensitivity on booms & drops)
     this.energyHistory.push(rawEnergy);
     if (this.energyHistory.length > this.historySize) {
       this.energyHistory.shift();
@@ -77,44 +77,39 @@ export class AudioAnalyzer {
       this.energyHistory.reduce((sum, val) => sum + Math.pow(val - avgHistoricalEnergy, 2), 0) /
       this.energyHistory.length;
 
-    // Dynamic threshold based on energy variance
-    const threshold = avgHistoricalEnergy + Math.sqrt(energyVariance) * 1.2 + 0.05;
+    // Responsive threshold
+    const threshold = avgHistoricalEnergy + Math.sqrt(energyVariance) * 0.9 + 0.03;
     let instantTransient = 0;
 
     if (this.beatCooldown > 0) {
       this.beatCooldown--;
-    } else if (rawEnergy > threshold && rawEnergy > 0.12) {
-      instantTransient = Math.min(1, (rawEnergy - threshold) * 4.0 + (rawBass > 0.3 ? 0.3 : 0));
-      this.beatCooldown = 6; // debounce frames
+    } else if (rawEnergy > threshold && (rawEnergy > 0.08 || rawBass > 0.35)) {
+      instantTransient = Math.min(1.0, (rawEnergy - threshold) * 5.0 + rawBass * 0.4);
+      this.beatCooldown = 4; // fast debounce for rhythmic tracking
     }
 
     // 4. Physical Exponential Damping & Inertia
-    // Large bass has more mass (slower decay, quick attack)
-    const bassAttack = 0.65;
-    const bassDecay = 0.15;
+    const bassAttack = 0.75;
+    const bassDecay = 0.18;
     this.smoothedBass +=
       (rawBass - this.smoothedBass) * (rawBass > this.smoothedBass ? bassAttack : bassDecay);
 
-    // Mids have fluid momentum
-    const midsAttack = 0.55;
-    const midsDecay = 0.2;
+    const midsAttack = 0.65;
+    const midsDecay = 0.22;
     this.smoothedMids +=
       (rawMids - this.smoothedMids) * (rawMids > this.smoothedMids ? midsAttack : midsDecay);
 
-    // Treble has snappy responsiveness
-    const trebleAttack = 0.75;
-    const trebleDecay = 0.3;
+    const trebleAttack = 0.85;
+    const trebleDecay = 0.28;
     this.smoothedTreble +=
       (rawTreble - this.smoothedTreble) *
       (rawTreble > this.smoothedTreble ? trebleAttack : trebleDecay);
 
-    // Overall energy smoothing
-    this.smoothedEnergy += (rawEnergy - this.smoothedEnergy) * 0.3;
+    this.smoothedEnergy += (rawEnergy - this.smoothedEnergy) * 0.4;
 
-    // Transient decay
     this.smoothedTransient = Math.max(
       instantTransient,
-      this.smoothedTransient * 0.82 - 0.01
+      this.smoothedTransient * 0.86 - 0.008
     );
 
     return {

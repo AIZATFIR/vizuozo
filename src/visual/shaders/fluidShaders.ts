@@ -142,49 +142,22 @@ void main() {
 
     // Fluid coordinates (compact scale)
     vec2 p = uv * (uFluidScale * 1.6);
-    vec2 q, r;
-    float f = fluidPattern(p, q, r);
+    // Pure Pitch Black Void (#000000)
+    vec3 col = vec3(0.0);
     
-    // Deep Dark Void Base
-    vec3 col = uColorBg;
-    
-    // Subtle cosmic dust haze (compact center radius < 0.6)
-    float centerHaze = smoothstep(0.62, 0.15, length(uv));
-    float fluidDensity = smoothstep(0.1, 0.75, f) * centerHaze;
-    float ribbonDensity = smoothstep(0.3, 0.85, length(q)) * centerHaze;
-    
-    // Faint delicate starlight ribbons
-    col += uColorPrimary * fluidDensity * (0.22 + uBass * 0.18);
-    col += uColorSecondary * ribbonDensity * (0.16 + uMids * 0.16);
-    
-    // Soft central glow
-    float softGlow = pow(clamp(fluidDensity * ribbonDensity * 2.0, 0.0, 1.0), 2.2);
-    col += uColorGlow * softGlow * (0.2 + uEnergy * 0.15);
-    
-    // Architectural Arches (Jannah preset)
-    float arch = archSilhouette(uv) * centerHaze;
-    if (arch > 0.001) {
-        col += uColorGlow * arch * (0.25 + uBass * 0.18);
-    }
-    
-    // Deep Monumental Semicolon ';' in the dark abyss
+    // Deep Monumental Semicolon ';' in the dark abyss (subtle starlight contour when visible)
     if (uSemicolonVisibility > 0.01) {
-        vec2 semiUv = uv + vec2(0.0, -0.04) + vec2(snoise(uv * 1.6 + uTime * 0.06)) * (0.01 + uBass * 0.015);
-        float semiScale = 1.05; // Compact subtle semicolon
+        vec2 semiUv = uv + vec2(0.0, -0.04);
+        float semiScale = 1.05;
         float dSemi = sdSemicolon(semiUv, semiScale);
         
-        // Deep soft glowing contour
-        float semiInner = smoothstep(0.015, -0.02, dSemi);
-        float semiGlow = smoothstep(0.22, 0.0, dSemi) * (0.18 + uBass * 0.18 + uTransient * 0.15);
+        float semiInner = smoothstep(0.008, -0.015, dSemi);
+        float semiGlow = smoothstep(0.12, 0.0, dSemi) * (0.12 + uBass * 0.15 + uTransient * 0.15);
         
-        vec3 semiCol = mix(uColorGlow, uColorAccent, 0.6);
-        col += semiCol * (semiInner * 0.12 + semiGlow * 0.16) * uSemicolonVisibility * centerHaze;
+        vec3 semiCol = mix(uColorGlow, uColorAccent, 0.8);
+        col += semiCol * (semiInner * 0.10 + semiGlow * 0.14) * uSemicolonVisibility;
     }
     
-    // Atmospheric Vignette (fades to 100% pitch black #000000 beyond center)
-    float vignette = smoothstep(0.85, 0.25, length(uv));
-    col *= vignette;
-
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
 `;

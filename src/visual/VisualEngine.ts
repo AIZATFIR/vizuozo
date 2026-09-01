@@ -30,6 +30,7 @@ export class VisualEngine {
   private causticFormSource = 0.0;
   private causticFormTarget = 0.0;
   private causticMorph = 1.0;
+  private boomMorph = 0.0;
   private activePalette: {
     primary: THREE.Vector3;
     secondary: THREE.Vector3;
@@ -124,7 +125,8 @@ export class VisualEngine {
     this.scene.add(this.fluidMesh);
 
     // 5. Create GPU Particle System (Astrophysical Rings, Crescent Loops & Polar Jets)
-    const maxParticles = 6500;
+    // 5. Create GPU Particle System (Dense Crystalline Caustic Curves)
+    const maxParticles = 10000;
     const positions = new Float32Array(maxParticles * 3);
     const sizes = new Float32Array(maxParticles);
     const phases = new Float32Array(maxParticles);
@@ -133,58 +135,30 @@ export class VisualEngine {
 
     for (let i = 0; i < maxParticles; i++) {
       const idx = i * 3;
-      const rand = Math.random();
-      // 0: ambient stardust (15%)
-      // 1: orbital ring (25%)
-      // 2: crescent/teardrop loop (20%)
-      // 3: polar jets (25%)
-      // 4: astroid caustic cusps (15%)
-      const pType = rand < 0.15 ? 0 : rand < 0.40 ? 1 : rand < 0.60 ? 2 : rand < 0.85 ? 3 : 4;
-      types[i] = pType;
+      
+      // Uniform parameter t in [0, 1) ensures unbroken, continuous lines
+      phases[i] = i / maxParticles;
+      
+      // 82% of particles form the blistering white beam core; 18% form stardust grain halo
+      const isCore = Math.random() < 0.82;
+      types[i] = isCore ? Math.random() * 0.80 : 0.82 + Math.random() * 0.18;
+      
+      // Gaussian distribution for natural starlight scatter
+      const u1 = Math.max(1e-6, Math.random());
+      const u2 = Math.random();
+      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      const z1 = Math.sqrt(-2.0 * Math.log(u1)) * Math.sin(2.0 * Math.PI * u2);
+      const z2 = (Math.random() - 0.5) * 2.0;
 
-      if (pType === 1) {
-        // Orbital Ring
-        const rad = 0.38 + (Math.random() - 0.5) * 0.04;
-        const theta = Math.random() * Math.PI * 2;
-        positions[idx] = Math.cos(theta) * rad;
-        positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.05;
-      } else if (pType === 2) {
-        // Crescent loop
-        const theta = Math.random() * Math.PI * 2;
-        const rad = 0.12 + (Math.random() - 0.5) * 0.03;
-        positions[idx] = Math.cos(theta) * rad;
-        positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.04;
-      } else if (pType === 3) {
-        // Polar Jets
-        const isCoreA = Math.random() > 0.5;
-        const baseAngle = isCoreA ? 0.45 : 3.59;
-        const dist = 0.05 + Math.random() * 0.50;
-        positions[idx] = Math.cos(baseAngle) * dist;
-        positions[idx + 1] = Math.sin(baseAngle) * dist;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.03;
-      } else if (pType === 4) {
-        // Astroid caustic cusps
-        const theta = Math.random() * Math.PI * 2;
-        const rad = 0.25 * (Math.random() * 0.5 + 0.5);
-        positions[idx] = Math.cos(theta) * rad;
-        positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.04;
-      } else {
-        // Ambient stardust
-        const rad = Math.sqrt(Math.random()) * 0.55;
-        const theta = Math.random() * Math.PI * 2;
-        positions[idx] = Math.cos(theta) * rad;
-        positions[idx + 1] = Math.sin(theta) * rad;
-        positions[idx + 2] = (Math.random() - 0.5) * 0.1;
-      }
+      velocities[idx] = z0;
+      velocities[idx + 1] = z1;
+      velocities[idx + 2] = z2;
 
-      sizes[i] = 0.8 + Math.random() * 1.8;
-      phases[i] = Math.random() * Math.PI * 2;
-      velocities[idx] = (Math.random() - 0.5) * 0.05;
-      velocities[idx + 1] = (Math.random() - 0.5) * 0.05;
-      velocities[idx + 2] = (Math.random() - 0.5) * 0.05;
+      sizes[i] = isCore ? (1.0 + Math.random() * 1.6) : (0.6 + Math.random() * 1.0);
+      
+      positions[idx] = 0;
+      positions[idx + 1] = 0;
+      positions[idx + 2] = 0;
     }
 
     this.particleGeometry = new THREE.BufferGeometry();
@@ -209,6 +183,7 @@ export class VisualEngine {
         uCausticFormSource: { value: 0.0 },
         uCausticFormTarget: { value: 0.0 },
         uCausticMorph: { value: 1.0 },
+        uBoomMorph: { value: 0.0 },
         uColorGlow: { value: this.activePalette.glow },
         uColorAccent: { value: this.activePalette.accent }
       },
@@ -353,6 +328,12 @@ export class VisualEngine {
     this.particleMaterial.uniforms.uCausticFormSource.value = this.causticFormSource;
     this.particleMaterial.uniforms.uCausticFormTarget.value = this.causticFormTarget;
     this.particleMaterial.uniforms.uCausticMorph.value = this.causticMorph;
+    
+    // Audio boom dynamic morph trigger
+    const boomTrigger = Math.max(0, (metrics.transient * 1.3 + metrics.bass * 0.9) - 0.35);
+    this.boomMorph = Math.max(boomTrigger, this.boomMorph * 0.88 - 0.015);
+    this.particleMaterial.uniforms.uBoomMorph.value = this.boomMorph;
+
     this.particleMaterial.uniforms.uTreble.value = metrics.treble;
     this.particleMaterial.uniforms.uTransient.value = metrics.transient;
     this.particleMaterial.uniforms.uEnergy.value = metrics.energy;
