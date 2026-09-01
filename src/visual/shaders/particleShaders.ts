@@ -17,261 +17,225 @@ uniform vec3 uColorAccent;
 attribute float aSize;
 attribute float aPhase;
 attribute vec3 aVelocity;
-attribute float aType; // 0..1 parametric curve parameter
+attribute float aType; // 0..1 curve & dispersion parameter
 
 varying vec3 vColor;
 varying float vAlpha;
-varying float vCoreIntensity;
 
 // -----------------------------------------------------------------------------
-// Form 0: Tilted Glowing Ring with Inner Lightning Tendril (Image 3)
+// Form 0: Ethereal Photon Ring & Filament (Gambar 3)
 // -----------------------------------------------------------------------------
-vec2 getFormRing(float p, float t, out float coreDist) {
+vec2 getFormRing(float p, float t, vec3 noise) {
+    mat2 tilt = mat2(cos(0.68), sin(0.68), -sin(0.68), cos(0.68));
     vec2 pos = vec2(0.0);
-    mat2 tilt = mat2(cos(0.65), sin(0.65), -sin(0.65), cos(0.65));
     
-    if (p < 0.78) {
-        // Main thick luminous ring (s in [0, 1])
-        float s = p / 0.78;
-        float angle = s * 6.2831853 + t * 0.15;
-        float rx = 0.28 + uBass * 0.08 + uTransient * 0.12;
-        float ry = 0.21 + uBass * 0.06 + uTransient * 0.09;
-        vec2 ringP = tilt * vec2(cos(angle) * rx, sin(angle) * ry);
+    if (p < 0.75) {
+        // Delicate thin photon ring
+        float s = p / 0.75;
+        float angle = s * 6.2831853 + t * 0.2;
+        float rx = 0.28 + sin(s * 12.0) * 0.008 + uBass * 0.06;
+        float ry = 0.21 + cos(s * 12.0) * 0.006 + uBass * 0.04;
+        
+        // Fine dispersion / pecyar scatter
+        float scatter = noise.x * (0.008 + (1.0 - aType) * 0.035 + uTreble * 0.015);
+        vec2 ringP = tilt * vec2(cos(angle) * (rx + scatter), sin(angle) * (ry + scatter));
         pos = ringP;
-        coreDist = 0.05; // Bright core
     } else {
-        // Inner lightning tendril filament inside dark hole
-        float s = (p - 0.78) / 0.22;
+        // Inner lightning tendril
+        float s = (p - 0.75) / 0.25;
         float y = mix(0.12, -0.12, s);
-        float zig = sin(s * 24.0 + uTime * 6.0) * (0.025 + uTreble * 0.03) * (1.0 - s * 0.5);
-        vec2 tendrilP = tilt * vec2(zig, y);
-        pos = tendrilP;
-        coreDist = 0.15;
+        float zig = sin(s * 28.0 + uTime * 6.0) * (0.022 + uTreble * 0.02) * (1.0 - s * 0.4);
+        zig += noise.y * (0.006 + uTreble * 0.01);
+        pos = tilt * vec2(zig, y);
     }
     return pos;
 }
 
 // -----------------------------------------------------------------------------
-// Form 1: Arched Book / Bridge Cradle with 45° Antenna Needle (Images 1 & 2)
+// Form 1: Cosmic Arch & 45° Antenna Jet (Gambar 1 & 2)
 // -----------------------------------------------------------------------------
-vec2 getFormArch(float p, float t, out float coreDist) {
+vec2 getFormArch(float p, float t, vec3 noise) {
     vec2 pos = vec2(0.0);
     
-    if (p < 0.35) {
-        // 1. Sharp 45° Diagonal Antenna Needle shooting towards upper-right
-        float s = p / 0.35;
+    if (p < 0.38) {
+        // Sharp diagonal antenna needle shooting towards top-right (+45°)
+        float s = p / 0.38;
         vec2 root = vec2(0.0, 0.04);
         vec2 dir = normalize(vec2(0.65, 0.76));
-        float len = 0.38 + uBass * 0.20 + uTransient * 0.35;
-        pos = root + dir * (s * len);
-        // Antenna focal bulb node near tip
-        float bulb = exp(-pow((s - 0.75) * 12.0, 2.0)) * 0.015;
-        pos += vec2(-dir.y, dir.x) * (sin(s * 30.0 - uTime * 6.0) * 0.003 + bulb);
-        coreDist = (1.0 - s) * 0.2;
-    } else if (p < 0.65) {
-        // 2. Arched Cradle Bottom Ribs (Connecting the 4 base vertices)
-        float s = (p - 0.35) / 0.30;
-        float x = (s - 0.5) * (0.38 + uBass * 0.1);
-        // Parabolic / hyperbolic arched saddle
-        float y = -0.12 + pow(x * 2.5, 2.0) * 0.08 - 0.04 * cos(s * 3.14159);
+        float len = 0.38 + uBass * 0.18 + uTransient * 0.30;
+        
+        // Needle tip with delicate micro-filament spread
+        float spread = pow(s, 1.5) * (0.015 + uTreble * 0.02) * noise.x;
+        pos = root + dir * (s * len) + vec2(-dir.y, dir.x) * spread;
+        // Bulb pinch node near tip
+        float bulb = exp(-pow((s - 0.72) * 14.0, 2.0)) * 0.012 * noise.y;
+        pos += vec2(-dir.y, dir.x) * bulb;
+    } else if (p < 0.70) {
+        // Arched cradle bottom ribs
+        float s = (p - 0.38) / 0.32;
+        float x = (s - 0.5) * (0.36 + uBass * 0.08);
+        float y = -0.10 + pow(x * 2.5, 2.0) * 0.07 - 0.03 * cos(s * 3.14159);
+        y += noise.y * (0.008 + (1.0 - aType) * 0.025);
+        x += noise.x * (0.008 + (1.0 - aType) * 0.025);
         pos = vec2(x, y);
-        coreDist = 0.08;
     } else {
-        // 3. Upright Pillars & Roof Crossbars
-        float s = (p - 0.65) / 0.35;
+        // Upright thin pillar filaments
+        float s = (p - 0.70) / 0.30;
         float isLeft = step(0.5, fract(s * 2.0));
-        float legX = (isLeft > 0.5 ? -0.16 : 0.16) * (1.0 + uBass * 0.15);
-        float legY = mix(-0.16, 0.06, fract(s * 4.0));
+        float legX = (isLeft > 0.5 ? -0.15 : 0.15) * (1.0 + uBass * 0.12) + noise.x * 0.015;
+        float legY = mix(-0.15, 0.06, fract(s * 4.0)) + noise.y * 0.015;
         pos = vec2(legX, legY);
-        coreDist = 0.1;
     }
     return pos;
 }
 
 // -----------------------------------------------------------------------------
-// Form 2: Double-Lobe Hourglass / Cardioid Caustic with Singularity (Image 4)
+// Form 2: Double-Lobe Cardioid / Hourglass Caustic (Gambar 4)
 // -----------------------------------------------------------------------------
-vec2 getFormLobe(float p, float t, out float coreDist) {
+vec2 getFormLobe(float p, float t, vec3 noise) {
     vec2 pos = vec2(0.0);
     
-    if (p < 0.50) {
-        // 1. Two Kidney Lobes meeting at top singularity
-        float s = p / 0.50;
+    if (p < 0.52) {
+        // Dual kidney lobes meeting at top singularity
+        float s = p / 0.52;
         float angle = s * 6.2831853;
-        float r = 0.26 * (0.85 + 0.28 * cos(2.0 * angle) - 0.20 * sin(angle) + uBass * 0.08);
-        pos = vec2(cos(angle) * r * 1.05, sin(angle) * r * 1.25 + 0.02);
-        coreDist = 0.08;
+        float r = 0.25 * (0.85 + 0.26 * cos(2.0 * angle) - 0.18 * sin(angle) + uBass * 0.06);
+        r += noise.x * (0.008 + (1.0 - aType) * 0.03);
+        pos = vec2(cos(angle) * r * 1.05, sin(angle) * r * 1.22 + 0.02);
     } else if (p < 0.82) {
-        // 2. Dense Blazing White Bottom Crescent Basin
-        float s = (p - 0.50) / 0.32;
-        float arcAngle = mix(-2.4, -0.74, s);
-        float rCrescent = 0.24 + uBass * 0.06;
-        pos = vec2(cos(arcAngle) * rCrescent * 1.2, sin(arcAngle) * rCrescent * 0.95 - 0.02);
-        coreDist = 0.02; // Super bright bottom crescent
+        // Dense glowing bottom crescent arc
+        float s = (p - 0.52) / 0.30;
+        float arcAngle = mix(-2.35, -0.79, s);
+        float rCrescent = 0.23 + uBass * 0.05 + noise.y * 0.012;
+        pos = vec2(cos(arcAngle) * rCrescent * 1.18, sin(arcAngle) * rCrescent * 0.95 - 0.02);
     } else {
-        // 3. Wispy Vertical Streamer Tail
+        // Wispy vertical streamer tail
         float s = (p - 0.82) / 0.18;
-        float tailY = mix(-0.20, -0.38 - uTransient * 0.15, s);
-        float tailX = sin(s * 12.0 + uTime * 4.0) * (0.01 + uTreble * 0.015);
+        float tailY = mix(-0.18, -0.36 - uTransient * 0.15, s);
+        float tailX = sin(s * 14.0 + uTime * 4.0) * (0.01 + uTreble * 0.015) + noise.x * 0.015;
         pos = vec2(tailX, tailY);
-        coreDist = 0.25;
     }
     return pos;
 }
 
 // -----------------------------------------------------------------------------
-// Form 3: Dual Polar Jets & Dipole (Image 1 & 2 of 1st set)
+// Form 3: Dual Polar Relativistic Jets (Gambar Awal)
 // -----------------------------------------------------------------------------
-vec2 getFormJets(float p, float t, out float coreDist) {
+vec2 getFormJets(float p, float t, vec3 noise) {
     vec2 pos = vec2(0.0);
     
     if (p < 0.45) {
-        // Bottom-Right Jet Needle (shooting down-right at -35°)
+        // Bottom-Right diagonal jet beam (-35°)
         float s = p / 0.45;
-        vec2 origin = vec2(0.08, -0.08);
+        vec2 origin = vec2(0.07, -0.07);
         vec2 dir = normalize(vec2(0.82, -0.57));
-        float len = 0.42 + uBass * 0.25 + uTransient * 0.35;
-        pos = origin + dir * (pow(s, 1.1) * len);
-        // Needle tip sharpness
-        float width = sin(s * 3.14159) * (0.012 + uTreble * 0.015);
-        pos += vec2(-dir.y, dir.x) * (aVelocity.x * width);
-        coreDist = (1.0 - s) * 0.1;
+        float len = 0.40 + uBass * 0.20 + uTransient * 0.30;
+        float spread = pow(s, 1.3) * (0.015 + uTreble * 0.02) * noise.y;
+        pos = origin + dir * (pow(s, 1.1) * len) + vec2(-dir.y, dir.x) * spread;
     } else if (p < 0.75) {
         // Top-Left Crescent Loop & Focal Needle
         float s = (p - 0.45) / 0.30;
         float loopAngle = s * 6.2831853;
-        float rLoop = 0.12 * (1.0 - sin(loopAngle));
-        vec2 loopCenter = vec2(-0.14, 0.12);
+        float rLoop = 0.11 * (1.0 - sin(loopAngle)) + noise.x * 0.01;
+        vec2 loopCenter = vec2(-0.13, 0.11);
         mat2 loopRot = mat2(cos(0.5), sin(0.5), -sin(0.5), cos(0.5));
-        pos = loopCenter + loopRot * vec2(cos(loopAngle) * rLoop * 1.3, sin(loopAngle) * rLoop);
-        coreDist = 0.08;
+        pos = loopCenter + loopRot * vec2(cos(loopAngle) * rLoop * 1.25, sin(loopAngle) * rLoop);
     } else {
-        // Orbital Dust Filament Enclosing System
+        // Ethereal outer stardust halo
         float s = (p - 0.75) / 0.25;
         float orbitAngle = s * 6.2831853 + t * 0.15;
-        float rOrbit = 0.34 + uBass * 0.05;
+        float rOrbit = 0.32 + uBass * 0.04 + noise.x * 0.04;
         pos = vec2(cos(orbitAngle) * rOrbit * 1.1, sin(orbitAngle) * rOrbit * 0.95);
-        coreDist = 0.2;
     }
     return pos;
 }
 
 // -----------------------------------------------------------------------------
-// Form 4: Deep Semicolon ';' Caustic
+// Form 4: Pure Abstract Astroid / Deltoid Caustic Cusp
 // -----------------------------------------------------------------------------
-vec2 getFormSemicolon(float p, float t, out float coreDist) {
-    vec2 pos = vec2(0.0);
-    if (p < 0.40) {
-        float s = p / 0.40;
-        float ang = s * 6.2831853;
-        pos = vec2(cos(ang), sin(ang)) * 0.038 + vec2(0.0, 0.12 + uTransient * 0.04);
-        coreDist = 0.05;
-    } else {
-        float s = (p - 0.40) / 0.60;
-        float y = mix(0.04, -0.16, s);
-        float x = -pow(max(0.0, -y * 2.2), 1.8) * 0.08;
-        pos = vec2(x, y);
-        coreDist = 0.08;
-    }
+vec2 getFormCusp(float p, float t, vec3 noise) {
+    float ang = p * 6.2831853 + t * 0.2;
+    float r = 0.24 * (0.8 + 0.25 * cos(3.0 * ang) + uBass * 0.06);
+    r += noise.x * (0.01 + (1.0 - aType) * 0.035);
+    vec2 pos = vec2(cos(ang) * r, sin(ang) * r);
     return pos;
 }
 
 // -----------------------------------------------------------------------------
 // Form 5: Constellation Cat
 // -----------------------------------------------------------------------------
-vec2 getFormCat(float p, float t, out float coreDist) {
+vec2 getFormCat(float p, float t, vec3 noise) {
     float ang = p * 6.2831853;
-    float r = 0.20 + sin(ang * 4.0) * 0.02 + uTransient * 0.03;
+    float r = 0.18 + sin(ang * 4.0) * 0.015 + uTransient * 0.02;
+    r += noise.x * 0.015;
     vec2 pos = vec2(cos(ang) * r, sin(ang) * r * 1.1) + vec2(0.0, -0.04);
-    coreDist = 0.15;
     return pos;
 }
 
-vec2 evaluateForm(float formId, float p, float t, out float coreDist) {
-    if (formId < 0.5) return getFormRing(p, t, coreDist);
-    if (formId < 1.5) return getFormArch(p, t, coreDist);
-    if (formId < 2.5) return getFormLobe(p, t, coreDist);
-    if (formId < 3.5) return getFormJets(p, t, coreDist);
-    if (formId < 4.5) return getFormSemicolon(p, t, coreDist);
-    return getFormCat(p, t, coreDist);
+vec2 evaluateForm(float formId, float p, float t, vec3 noise) {
+    if (formId < 0.5) return getFormRing(p, t, noise);
+    if (formId < 1.5) return getFormArch(p, t, noise);
+    if (formId < 2.5) return getFormLobe(p, t, noise);
+    if (formId < 3.5) return getFormJets(p, t, noise);
+    if (formId < 4.5) return getFormCusp(p, t, noise);
+    return getFormCat(p, t, noise);
 }
 
 void main() {
     float t = uTime * uParticleSpeed * 0.35;
     
-    float coreDistA = 1.0;
-    float coreDistB = 1.0;
-    float coreDistBoom = 1.0;
-    
-    // Evaluate exact geometric positions on curves
-    vec2 posA = evaluateForm(uCausticFormSource, aPhase, t, coreDistA);
-    vec2 posB = evaluateForm(uCausticFormTarget, aPhase, t, coreDistB);
+    // Evaluate exact geometric positions on curves with fine starlight dispersion
+    vec2 posA = evaluateForm(uCausticFormSource, aPhase, t, aVelocity);
+    vec2 posB = evaluateForm(uCausticFormTarget, aPhase, t, aVelocity);
     
     // Smooth morph interpolation
     vec2 pos2D = mix(posA, posB, uCausticMorph);
-    float coreDist = mix(coreDistA, coreDistB, uCausticMorph);
     
     // Dynamic Audio Boom Mutation: morphs dynamically on beat drop
     if (uBoomMorph > 0.001) {
         float boomTarget = mod(uCausticFormTarget + 1.0, 5.0);
-        vec2 posBoom = evaluateForm(boomTarget, aPhase, t, coreDistBoom);
+        vec2 posBoom = evaluateForm(boomTarget, aPhase, t, aVelocity);
         pos2D = mix(pos2D, posBoom, uBoomMorph * 0.65);
-        coreDist = mix(coreDist, coreDistBoom, uBoomMorph * 0.65);
     }
     
-    // Exact photographic caustic line thickness:
-    // aType determines whether particle is on solid beam core (aType < 0.8) or fine grain dust halo (aType >= 0.8)
-    float isBeamCore = step(aType, 0.82);
-    float scatterScale = isBeamCore > 0.5 ? (0.003 + uTreble * 0.005) : (0.022 + uTreble * 0.015);
-    pos2D += aVelocity.xy * scatterScale;
-    
-    // Axial depth displacement with subtle breathing
-    float zDisp = aVelocity.z * (0.01 + uBass * 0.03 + uTransient * 0.05);
+    // Subtle axial depth breathing
+    float zDisp = aVelocity.z * (0.01 + uBass * 0.02 + uTransient * 0.04);
     vec3 pos = vec3(pos2D, zDisp);
     
-    // Strict Center Compact Bound (< 0.62 radius)
+    // Strict Center Compact Bound (< 0.60 radius)
     float r = length(pos.xy);
-    float maxRadius = 0.62 + uTransient * 0.08;
+    float maxRadius = 0.60 + uTransient * 0.06;
     float centerFade = smoothstep(maxRadius, maxRadius * 0.55, r);
     
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     
-    // Point size for solid dense light lines
-    float sizeBase = isBeamCore > 0.5 ? 1.6 : 1.0;
-    float sizeMultiplier = sizeBase + uTreble * 0.4 + uTransient * 1.6 + uBass * 0.6;
-    gl_PointSize = (aSize * uParticleSize * sizeMultiplier) * (260.0 / -mvPosition.z);
-    gl_PointSize = clamp(gl_PointSize, 0.8, 30.0);
+    // Single-pixel / ultra-fine micro-stardust grain (zero chunky blobs!)
+    float sizeMultiplier = (0.7 + aType * 0.6) * (1.0 + uTreble * 0.3 + uTransient * 0.6);
+    gl_PointSize = (aSize * uParticleSize * sizeMultiplier) * (180.0 / -mvPosition.z);
+    gl_PointSize = clamp(gl_PointSize, 0.7, 5.0); // Maximum 5px even on close-up!
     
     // Pure silver-white starlight
-    vec3 col = mix(uColorGlow, uColorAccent, 0.85);
+    vColor = mix(uColorGlow, uColorAccent, 0.9);
     
-    // Additive glow intensity
-    float coreGlow = smoothstep(0.30, 0.005, coreDist);
-    vCoreIntensity = coreGlow + (isBeamCore > 0.5 ? 0.4 : 0.0) + uTransient * 0.8;
-    vColor = col;
-    vAlpha = (0.50 + uEnergy * 0.4 + uTransient * 0.5) * centerFade;
+    // Low individual opacity so thousands of overlapping micro-points build up luminous caustics
+    float baseAlpha = aType > 0.5 ? 0.35 : 0.18;
+    vAlpha = (baseAlpha + uEnergy * 0.25 + uTransient * 0.4) * centerFade;
 }
 `;
 
 export const particleFragmentShader = `
 varying vec3 vColor;
 varying float vAlpha;
-varying float vCoreIntensity;
 
 void main() {
     vec2 coord = gl_PointCoord - vec2(0.5);
     float dist = length(coord);
     if (dist > 0.5) discard;
     
-    // Fine stippled Gaussian point with intense blazing white center
-    float core = smoothstep(0.12, 0.0, dist);
-    float halo = smoothstep(0.5, 0.0, dist);
-    float alpha = (core * 0.8 + halo * 0.2) * vAlpha;
+    // Sharp airy micro-stardust Gaussian point
+    float alpha = exp(-dist * dist * 12.0) * vAlpha;
     
-    // Pure white starlight core blending
-    vec3 col = mix(vColor, vec3(1.0, 1.0, 1.0), clamp(vCoreIntensity * 0.95 + core * 0.6, 0.0, 1.0));
-    
-    gl_FragColor = vec4(col, alpha);
+    gl_FragColor = vec4(vColor, alpha);
 }
 `;

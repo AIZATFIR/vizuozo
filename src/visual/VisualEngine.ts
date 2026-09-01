@@ -68,6 +68,7 @@ export class VisualEngine {
 
     // 2. Scene & Camera
     this.scene = new THREE.Scene();
+    this.renderer.setClearColor(0x000000, 1.0);
     this.camera = new THREE.PerspectiveCamera(
       60,
       container.clientWidth / container.clientHeight,
@@ -76,9 +77,9 @@ export class VisualEngine {
     );
     this.camera.position.z = 2.5;
 
-    // 3. Initialize Presets
-    this.currentPreset = { ...PRESETS.fluid };
-    this.targetPreset = { ...PRESETS.fluid };
+    // 3. Initialize Presets (Default: Void / Photon Ring - Gambar 3)
+    this.currentPreset = { ...PRESETS.void };
+    this.targetPreset = { ...PRESETS.void };
     this.activePalette = {
       primary: new THREE.Vector3(...this.currentPreset.palette.primary),
       secondary: new THREE.Vector3(...this.currentPreset.palette.secondary),
@@ -87,7 +88,7 @@ export class VisualEngine {
       glow: new THREE.Vector3(...this.currentPreset.palette.glow)
     };
 
-    // 4. Create Background Fluid Quad
+    // 4. Create Background Shader Material
     this.fluidMaterial = new THREE.ShaderMaterial({
       vertexShader: fluidVertexShader,
       fragmentShader: fluidFragmentShader,
@@ -122,11 +123,10 @@ export class VisualEngine {
     const quadGeo = new THREE.PlaneGeometry(20, 20);
     this.fluidMesh = new THREE.Mesh(quadGeo, this.fluidMaterial);
     this.fluidMesh.position.z = -1.0;
-    this.scene.add(this.fluidMesh);
+    // Don't add fluidMesh to scene to guarantee pure pitch-black void
 
-    // 5. Create GPU Particle System (Astrophysical Rings, Crescent Loops & Polar Jets)
-    // 5. Create GPU Particle System (Dense Crystalline Caustic Curves)
-    const maxParticles = 10000;
+    // 5. Create GPU Particle System (Dense Airy Stardust Caustics)
+    const maxParticles = 16000;
     const positions = new Float32Array(maxParticles * 3);
     const sizes = new Float32Array(maxParticles);
     const phases = new Float32Array(maxParticles);
@@ -136,14 +136,13 @@ export class VisualEngine {
     for (let i = 0; i < maxParticles; i++) {
       const idx = i * 3;
       
-      // Uniform parameter t in [0, 1) ensures unbroken, continuous lines
+      // Uniform parameter s in [0, 1) ensures unbroken curves
       phases[i] = i / maxParticles;
       
-      // 82% of particles form the blistering white beam core; 18% form stardust grain halo
-      const isCore = Math.random() < 0.82;
-      types[i] = isCore ? Math.random() * 0.80 : 0.82 + Math.random() * 0.18;
+      // Random type for dispersion weighting
+      types[i] = Math.random();
       
-      // Gaussian distribution for natural starlight scatter
+      // Gaussian distribution for airy stardust scatter (pecyar)
       const u1 = Math.max(1e-6, Math.random());
       const u2 = Math.random();
       const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
@@ -154,7 +153,7 @@ export class VisualEngine {
       velocities[idx + 1] = z1;
       velocities[idx + 2] = z2;
 
-      sizes[i] = isCore ? (1.0 + Math.random() * 1.6) : (0.6 + Math.random() * 1.0);
+      sizes[i] = 0.8 + Math.random() * 1.2;
       
       positions[idx] = 0;
       positions[idx + 1] = 0;

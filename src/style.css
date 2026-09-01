@@ -2,8 +2,8 @@
   --font-primary: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'Space Grotesk', monospace;
   
-  --bg-dark: #020204;
-  --glass-bg: rgba(10, 9, 16, 0.82);
+  --bg-dark: #000000;
+  --glass-bg: rgba(8, 8, 12, 0.85);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-glow: rgba(255, 224, 153, 0.05);
   --glass-hover: rgba(255, 255, 255, 0.12);
